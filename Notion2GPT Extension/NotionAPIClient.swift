@@ -53,9 +53,9 @@ nonisolated actor NotionAPIClient {
 
     static let shared = NotionAPIClient()
 
-    private let clientId = "YOUR_NOTION_CLIENT_ID"
-    private let clientSecret = "YOUR_NOTION_CLIENT_SECRET"
-    private let redirectUri = "notion2gpt://oauth-callback"
+    private let clientId = Secrets.notionClientId
+    private let clientSecret = Secrets.notionClientSecret
+    private let redirectUri = "https://sidhuk.github.io/Notion2GPT/callback.html"
     private let apiVersion = "2025-09-03"
     private let baseURL = "https://api.notion.com"
 

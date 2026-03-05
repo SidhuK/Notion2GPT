@@ -11,8 +11,8 @@ import os.log
 
 class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
 
-    private let clientId = "YOUR_NOTION_CLIENT_ID"
-    private let redirectUri = "notion2gpt://oauth-callback"
+    private let clientId = Secrets.notionClientId
+    private let redirectUri = "https://sidhuk.github.io/Notion2GPT/callback.html"
 
     func beginRequest(with context: NSExtensionContext) {
         let request = context.inputItems.first as? NSExtensionItem
