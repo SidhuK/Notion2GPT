@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy — Notion2GPT</title>
+    <style>
+        :root {
+            color-scheme: light dark;
+            --bg: #ffffff;
+            --text: #1a1a1a;
+            --text-secondary: #555;
+            --border: #e0e0e0;
+            --link: #2563eb;
+            --link-hover: #1d4ed8;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #111111;
+                --text: #e5e5e5;
+                --text-secondary: #999;
+                --border: #2a2a2a;
+                --link: #60a5fa;
+                --link-hover: #93bbfd;
+            }
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            padding: 3rem 1.5rem;
+        }
+        .container { max-width: 720px; margin: 0 auto; }
+        .header { margin-bottom: 2rem; }
+        .header a {
+            color: var(--text);
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 1.125rem;
+        }
+        .header a:hover { color: var(--link); }
+        h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.25rem;
+        }
+        .effective {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 2rem;
+        }
+        h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-top: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        p, ul { margin-bottom: 1rem; }
+        ul { padding-left: 1.5rem; }
+        li { margin-bottom: 0.35rem; }
+        a { color: var(--link); text-decoration: none; }
+        a:hover { color: var(--link-hover); text-decoration: underline; }
+        footer {
+            margin-top: 3rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header"><a href="index.html">Notion2GPT</a></div>
+
+        <h1>Privacy Policy</h1>
+        <p class="effective">Effective date: March 1, 2026</p>
+
+        <p>Notion2GPT ("the Extension") is a Safari extension developed by Karat Sidhu that allows you to save ChatGPT conversations to your Notion workspace. Your privacy is important to us, and we are committed to being transparent about how the Extension handles your data.</p>
+
+        <h2>Data We Collect</h2>
+        <p>Notion2GPT collects <strong>only</strong> the following data, and only when you explicitly click "Save":</p>
+        <ul>
+            <li>ChatGPT conversation content visible on the page (titles and messages).</li>
+        </ul>
+        <p>We do <strong>not</strong> collect any data passively, automatically, or in the background. No analytics, telemetry, or tracking of any kind is used.</p>
+
+        <h2>How Your Data Is Used</h2>
+        <p>When you click "Save," the Extension reads the conversation content from the active ChatGPT page and sends it <strong>directly to your own Notion workspace</strong> via Notion's official API. We do not intercept, store, or transmit your conversation data to any server other than Notion's API on your behalf.</p>
+
+        <h2>Authentication &amp; Token Storage</h2>
+        <p>To connect with Notion, the Extension uses Notion's OAuth flow. The resulting access token is:</p>
+        <ul>
+            <li>Stored <strong>locally on your device</strong> in the macOS Keychain.</li>
+            <li><strong>Never transmitted</strong> to any server other than Notion's API.</li>
+            <li>Used solely to authenticate requests to your Notion workspace.</li>
+        </ul>
+
+        <h2>Third-Party Services</h2>
+        <p>The Extension communicates exclusively with Notion's API (<code>api.notion.com</code>) to save your conversations. No other third-party services, analytics platforms, or advertising networks are used.</p>
+
+        <h2>Personal Information</h2>
+        <p>We do not collect personal information beyond what Notion's OAuth process provides (your Notion workspace name), which is used only to display your connected workspace within the Extension.</p>
+
+        <h2>Data Retention</h2>
+        <ul>
+            <li><strong>Conversations:</strong> All saved conversation data is stored in your Notion workspace, under your control. We do not retain any copies.</li>
+            <li><strong>OAuth tokens:</strong> Stored locally on your device. You can delete them at any time by disconnecting from Notion in the Extension settings, which revokes access and removes the token from your Keychain.</li>
+        </ul>
+
+        <h2>Children's Privacy</h2>
+        <p>The Extension is not directed at children under 13, and we do not knowingly collect data from children.</p>
+
+        <h2>Changes to This Policy</h2>
+        <p>We may update this Privacy Policy from time to time. Changes will be posted on this page with an updated effective date. Continued use of the Extension after changes constitutes acceptance of the revised policy.</p>
+
+        <h2>Contact Us</h2>
+        <p>If you have questions or concerns about this Privacy Policy, please contact us at <a href="mailto:contact@notion2gpt.app">contact@notion2gpt.app</a>.</p>
+
+        <footer>&copy; 2026 Karat Sidhu. All rights reserved.</footer>
+    </div>
+</body>
+</html>

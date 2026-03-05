@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notion2GPT</title>
+    <style>
+        :root {
+            color-scheme: light dark;
+            --bg: #ffffff;
+            --text: #1a1a1a;
+            --text-secondary: #555;
+            --border: #e0e0e0;
+            --link: #2563eb;
+            --link-hover: #1d4ed8;
+            --card-bg: #f9fafb;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #111111;
+                --text: #e5e5e5;
+                --text-secondary: #999;
+                --border: #2a2a2a;
+                --link: #60a5fa;
+                --link-hover: #93bbfd;
+                --card-bg: #1a1a1a;
+            }
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 3rem 1.5rem;
+        }
+        .container {
+            max-width: 720px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        .tagline {
+            font-size: 1.125rem;
+            color: var(--text-secondary);
+            margin-bottom: 2.5rem;
+        }
+        .links {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+        }
+        a {
+            color: var(--link);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        a:hover { color: var(--link-hover); text-decoration: underline; }
+        footer {
+            margin-top: 4rem;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Notion2GPT</h1>
+        <p class="tagline">Save your ChatGPT conversations to Notion with one click.</p>
+        <div class="links">
+            <a href="privacy.html">Privacy Policy</a>
+            <a href="terms.html">Terms of Use</a>
+        </div>
+        <footer>&copy; 2026 Karat Sidhu. All rights reserved.</footer>
+    </div>
+</body>
+</html>
