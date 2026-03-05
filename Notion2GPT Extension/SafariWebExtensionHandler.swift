@@ -73,7 +73,6 @@ class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         var components = URLComponents(string: "https://api.notion.com/v1/oauth/authorize")!
         components.queryItems = [
             URLQueryItem(name: "client_id", value: clientId),
-            URLQueryItem(name: "redirect_uri", value: redirectUri),
             URLQueryItem(name: "response_type", value: "code"),
             URLQueryItem(name: "owner", value: "user"),
             URLQueryItem(name: "state", value: state),

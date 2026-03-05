@@ -76,7 +76,6 @@ nonisolated actor NotionAPIClient {
         let body: [String: Any] = [
             "grant_type": "authorization_code",
             "code": code,
-            "redirect_uri": redirectUri,
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
