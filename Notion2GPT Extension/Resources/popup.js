@@ -67,8 +67,21 @@ async function loadPreview() {
     try {
         const data = await sendMessage({ action: "scrape-current-tab" });
 
-        if (!data || data.error) {
+        if (!data) {
             showState("state-wrong-page");
+            return;
+        }
+
+        if (data.error) {
+            if (data.error === "not_chatgpt" || data.error === "no_tab" || data.error === "inject_failed") {
+                showState("state-wrong-page");
+            } else if (data.error === "empty") {
+                setError(data.message || "No conversation found. Open a ChatGPT chat first.");
+            } else if (data.error === "streaming") {
+                setError(data.message || "Response is still generating. Please wait.");
+            } else {
+                setError(data.message || data.error);
+            }
             return;
         }
 
@@ -79,8 +92,8 @@ async function loadPreview() {
             `${data.messages?.length ?? 0} messages`;
 
         showState("state-ready");
-    } catch {
-        showState("state-wrong-page");
+    } catch (err) {
+        setError("Scrape failed: " + (err.message || "unknown error"));
     }
 }
 

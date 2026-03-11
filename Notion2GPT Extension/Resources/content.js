@@ -5,35 +5,58 @@
 // ---------------------------------------------------------------------------
 
 const MESSAGE_SELECTORS = {
+  // Tier 1: data-message-author-role attributes (most stable when present)
   tier1: {
     messages: '[data-message-author-role]',
     role: (el) => el.getAttribute('data-message-author-role'),
     content: (el) => el,
   },
+  // Tier 2: article elements with conversation-turn test IDs
+  // These use the pattern article[data-testid="conversation-turn-N"]
+  // Role is determined by looking inside for role markers, not from the testid string
   tier2: {
-    messages: 'article[data-testid]',
+    messages: 'article[data-testid^="conversation-turn-"]',
     role: (el) => {
-      const testId = el.getAttribute('data-testid') || '';
-      if (testId.includes('user')) return 'user';
-      if (testId.includes('assistant') || testId.includes('bot')) return 'assistant';
-      return null;
-    },
-    content: (el) => el,
-  },
-  tier3: {
-    messages: '[class*="group/conversation-turn"]',
-    role: (el) => {
-      const html = el.innerHTML || '';
-      if (el.querySelector('[data-message-author-role="user"]')) return 'user';
-      if (el.querySelector('[data-message-author-role="assistant"]')) return 'assistant';
-      // Heuristic: user turns typically lack the prose/markdown wrapper
-      if (el.querySelector('.markdown, .prose')) return 'assistant';
+      // Look inside the article for role indicators
+      const userEl = el.querySelector('[data-message-author-role="user"]');
+      if (userEl) return 'user';
+      const assistEl = el.querySelector('[data-message-author-role="assistant"]');
+      if (assistEl) return 'assistant';
+      // Heuristic fallback: assistant turns contain markdown/prose wrappers
+      if (el.querySelector('.markdown, .prose, .markdown-body')) return 'assistant';
+      // User turns often have a simpler structure
       if (el.querySelector('[data-message-id]')) return 'user';
       return null;
     },
     content: (el) => {
-      // Try to narrow down to the actual message content area
-      return el.querySelector('.markdown, .prose, [data-message-id]') || el;
+      return el.querySelector('.markdown, .prose, .markdown-body, [data-message-id]') || el;
+    },
+  },
+  // Tier 3: Broader conversation turn containers (class-based, less stable)
+  tier3: {
+    messages: '[class*="conversation-turn"], [class*="group/conversation-turn"]',
+    role: (el) => {
+      if (el.querySelector('[data-message-author-role="user"]')) return 'user';
+      if (el.querySelector('[data-message-author-role="assistant"]')) return 'assistant';
+      if (el.querySelector('.markdown, .prose, .markdown-body')) return 'assistant';
+      if (el.querySelector('[data-message-id]')) return 'user';
+      return null;
+    },
+    content: (el) => {
+      return el.querySelector('.markdown, .prose, .markdown-body, [data-message-id]') || el;
+    },
+  },
+  // Tier 4: Generic article fallback — any article with a data-testid
+  tier4: {
+    messages: 'main article[data-testid]',
+    role: (el) => {
+      if (el.querySelector('[data-message-author-role="user"]')) return 'user';
+      if (el.querySelector('[data-message-author-role="assistant"]')) return 'assistant';
+      if (el.querySelector('.markdown, .prose, .markdown-body')) return 'assistant';
+      return null;
+    },
+    content: (el) => {
+      return el.querySelector('.markdown, .prose, .markdown-body') || el;
     },
   },
 };
@@ -106,7 +129,10 @@ function detectModel() {
 // ---------------------------------------------------------------------------
 
 function extractMessages() {
-  const tiers = [MESSAGE_SELECTORS.tier1, MESSAGE_SELECTORS.tier2, MESSAGE_SELECTORS.tier3];
+  const tiers = [
+    MESSAGE_SELECTORS.tier1, MESSAGE_SELECTORS.tier2,
+    MESSAGE_SELECTORS.tier3, MESSAGE_SELECTORS.tier4,
+  ];
 
   for (const tier of tiers) {
     const elements = document.querySelectorAll(tier.messages);
@@ -129,6 +155,30 @@ function extractMessages() {
   }
 
   return [];
+}
+
+// ---------------------------------------------------------------------------
+// Wait for DOM readiness (ChatGPT is an SPA — content may not be rendered yet)
+// ---------------------------------------------------------------------------
+
+function waitForMessages(timeoutMs = 2000, intervalMs = 200) {
+  return new Promise((resolve) => {
+    // Try immediately first
+    const immediate = extractMessages();
+    if (immediate.length > 0) {
+      resolve(immediate);
+      return;
+    }
+
+    const start = Date.now();
+    const timer = setInterval(() => {
+      const messages = extractMessages();
+      if (messages.length > 0 || Date.now() - start >= timeoutMs) {
+        clearInterval(timer);
+        resolve(messages);
+      }
+    }, intervalMs);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -161,7 +211,7 @@ function validate(data) {
 // Main scraper
 // ---------------------------------------------------------------------------
 
-function scrapeConversation() {
+async function scrapeConversation() {
   // Check for streaming before doing anything
   if (isStreaming()) {
     return {
@@ -170,12 +220,12 @@ function scrapeConversation() {
     };
   }
 
-  const messages = extractMessages();
+  const messages = await waitForMessages();
 
   if (messages.length === 0) {
     return {
       error: 'empty',
-      message: 'No conversation messages found on this page.',
+      message: 'ChatGPT page detected but no conversation messages found. The page may still be loading, or you may be on the home screen.',
     };
   }
 
@@ -201,7 +251,7 @@ function scrapeConversation() {
 
 browser.runtime.onMessage.addListener((request, _sender, _sendResponse) => {
   if (request.action === 'scrape-conversation') {
-    return Promise.resolve(scrapeConversation());
+    return scrapeConversation();
   }
 
   if (request.action === 'ping') {
