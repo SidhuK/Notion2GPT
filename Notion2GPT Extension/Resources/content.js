@@ -72,7 +72,7 @@ function isStreaming() {
 
   // Animated cursor / typing indicator elements
   const cursor = document.querySelector(
-    '.result-streaming, [class*="cursor"], [class*="typing-indicator"]'
+    '.result-streaming, .streaming-cursor, [class*="typing-indicator"]'
   );
   if (cursor) return true;
 

@@ -293,6 +293,12 @@ h3 {
     outline-offset: -1px;
 }
 
+#page-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
 .divider {
     border: none;
     border-top: 1px solid var(--border);

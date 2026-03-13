@@ -49,25 +49,19 @@
         const state = params.get('state');
         const error = params.get('error');
 
-        let appUrl;
-        if (error) {
-            appUrl = 'notion2gpt://oauth-callback?error=' + encodeURIComponent(error);
-        } else if (code) {
-            appUrl = 'notion2gpt://oauth-callback?code=' + encodeURIComponent(code);
-            if (state) appUrl += '&state=' + encodeURIComponent(state);
-        }
-
-        if (appUrl) {
-            window.location.href = appUrl;
-
-            // Show fallback link after 2 seconds in case redirect didn't work
-            setTimeout(function() {
-                document.getElementById('manual-link').href = appUrl;
-                document.getElementById('fallback').style.display = 'block';
-            }, 2000);
-        } else {
+        // The Safari extension's background.js intercepts this page via
+        // webNavigation.onCompleted, reads the code/state from the URL,
+        // exchanges the token, and closes this tab automatically.
+        if (!code && !error) {
             document.querySelector('.spinner').style.display = 'none';
             document.querySelector('p').textContent = 'Invalid callback — missing authorization code.';
+        } else {
+            // Tab will be closed automatically by the extension
+            setTimeout(function() {
+                document.getElementById('fallback').style.display = 'block';
+                document.querySelector('#fallback').textContent =
+                    'If this tab wasn\u2019t closed automatically, you can close it and return to Safari.';
+            }, 3000);
         }
     </script>
 </body>

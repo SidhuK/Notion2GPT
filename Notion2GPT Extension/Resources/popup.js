@@ -10,6 +10,8 @@ const els = {
     btnSettings: $("btn-settings"),
     btnBack: $("btn-back"),
     btnCreateDb: $("btn-create-db"),
+    pagePicker: $("page-picker"),
+    selectParentPage: $("select-parent-page"),
     btnDisconnect: $("btn-disconnect"),
     btnRetry: $("btn-retry"),
     linkOpenNotion: $("link-open-notion"),
@@ -116,9 +118,9 @@ function startPolling() {
             if (result?.status === "connected" || result?.authenticated) {
                 stopPolling();
                 await loadPreview();
-            } else if (result?.status === "error" || result?.error) {
+            } else if (result?.status === "error" || result?.error || result?.reason) {
                 stopPolling();
-                setError(result.error || "Authorization failed.");
+                setError(result.error || result.reason || "Authorization failed.");
             }
         } catch {
             stopPolling();
@@ -158,8 +160,8 @@ async function handleSave() {
             return;
         }
 
-        if (result?.url) {
-            els.linkOpenNotion.href = result.url;
+        if (result?.pageUrl) {
+            els.linkOpenNotion.href = result.pageUrl;
         }
 
         showState("state-saved");
@@ -213,37 +215,90 @@ async function loadSettings(notice) {
 }
 
 async function handleCreateDatabase() {
-    if (!confirm("Create a new \"ChatGPT Saves\" database in Notion?")) {
+    // If the page picker is already showing, create the database with the selected page
+    if (!els.pagePicker.classList.contains("hidden")) {
+        const parentPageId = els.selectParentPage.value;
+        if (!parentPageId) return;
+
+        els.btnCreateDb.disabled = true;
+        els.btnCreateDb.textContent = "Creating…";
+
+        try {
+            const result = await sendMessage({
+                action: "create-database",
+                parentPageId,
+            });
+
+            if (result?.error) {
+                setError(result.error);
+                return;
+            }
+
+            if (result?.databaseId) {
+                await browser.storage.local.set({ databaseId: result.databaseId });
+            }
+
+            els.pagePicker.classList.add("hidden");
+            await loadSettings();
+        } catch (err) {
+            setError(err.message || "Failed to create database.");
+        } finally {
+            els.btnCreateDb.disabled = false;
+            els.btnCreateDb.textContent = "Create New Database";
+        }
         return;
     }
 
+    // First click: load pages and show the picker
     els.btnCreateDb.disabled = true;
-    els.btnCreateDb.textContent = "Creating…";
+    els.btnCreateDb.textContent = "Loading pages…";
 
     try {
-        const searchResult = await sendMessage({ action: "search-databases" });
-        const parentPageId = searchResult?.pages?.[0]?.id;
+        const pagesResult = await sendMessage({ action: "search-pages" });
+        const pages = pagesResult?.pages || [];
 
-        const result = await sendMessage({
-            action: "create-database",
-            parentPageId: parentPageId || undefined,
-        });
-
-        if (result?.error) {
-            setError(result.error);
+        if (pages.length === 0) {
+            setError("No pages found in your Notion workspace. Create a page in Notion first.");
             return;
         }
 
-        if (result?.databaseId) {
-            await browser.storage.local.set({ databaseId: result.databaseId });
+        if (pages.length === 1) {
+            // Only one page — skip the picker, create directly
+            els.btnCreateDb.textContent = "Creating…";
+
+            const result = await sendMessage({
+                action: "create-database",
+                parentPageId: pages[0].id,
+            });
+
+            if (result?.error) {
+                setError(result.error);
+                return;
+            }
+
+            if (result?.databaseId) {
+                await browser.storage.local.set({ databaseId: result.databaseId });
+            }
+
+            await loadSettings();
+            return;
         }
 
-        await loadSettings();
+        // Multiple pages — show the picker
+        els.selectParentPage.innerHTML = '<option value="" disabled selected>Choose a page…</option>';
+        pages.forEach((page) => {
+            const opt = document.createElement("option");
+            opt.value = page.id;
+            opt.textContent = page.title || "Untitled";
+            els.selectParentPage.appendChild(opt);
+        });
+
+        els.pagePicker.classList.remove("hidden");
+        els.btnCreateDb.textContent = "Create New Database";
     } catch (err) {
-        setError(err.message || "Failed to create database.");
+        setError(err.message || "Failed to load pages.");
     } finally {
         els.btnCreateDb.disabled = false;
-        els.btnCreateDb.textContent = "Create New Database";
     }
 }
 
@@ -273,8 +328,9 @@ els.btnConnect.addEventListener("click", async () => {
     }
 });
 
-els.btnCancelAuth.addEventListener("click", () => {
+els.btnCancelAuth.addEventListener("click", async () => {
     stopPolling();
+    try { await sendMessage({ action: "cancel-oauth" }); } catch {}
     showState("state-not-connected");
 });
 

@@ -49,14 +49,14 @@ struct WorkspaceInfo: Sendable {
 
 // MARK: - NotionAPIClient
 
-nonisolated actor NotionAPIClient {
+actor NotionAPIClient {
 
     static let shared = NotionAPIClient()
 
     private let clientId = Secrets.notionClientId
     private let clientSecret = Secrets.notionClientSecret
     private let redirectUri = "https://sidhuk.github.io/Notion2GPT/callback.html"
-    private let apiVersion = "2025-09-03"
+    private let apiVersion = "2022-06-28"
     private let baseURL = "https://api.notion.com"
 
     private let keychain = KeychainHelper.shared
@@ -76,6 +76,7 @@ nonisolated actor NotionAPIClient {
         let body: [String: Any] = [
             "grant_type": "authorization_code",
             "code": code,
+            "redirect_uri": redirectUri,
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
@@ -172,7 +173,7 @@ nonisolated actor NotionAPIClient {
     // MARK: - Authenticated Request
 
     func request(method: String, path: String, body: [String: Any]? = nil) async throws -> [String: Any] {
-        var accessToken = await keychain.readString(key: KeychainKey.accessToken)
+        let accessToken = await keychain.readString(key: KeychainKey.accessToken)
         guard var token = accessToken else {
             throw NotionAPIError.unauthorized
         }
@@ -250,6 +251,38 @@ nonisolated actor NotionAPIClient {
         return results
     }
 
+    func searchPages() async throws -> [[String: Any]] {
+        var allResults: [[String: Any]] = []
+        var startCursor: String? = nil
+
+        repeat {
+            var body: [String: Any] = [
+                "filter": [
+                    "property": "object",
+                    "value": "page",
+                ],
+                "page_size": 100,
+            ]
+            if let cursor = startCursor {
+                body["start_cursor"] = cursor
+            }
+
+            let result = try await request(method: "POST", path: "/v1/search", body: body)
+
+            guard let results = result["results"] as? [[String: Any]] else {
+                throw NotionAPIError.invalidResponse("Missing results array in search response")
+            }
+
+            allResults.append(contentsOf: results)
+
+            // Check for more pages
+            let hasMore = result["has_more"] as? Bool ?? false
+            startCursor = hasMore ? result["next_cursor"] as? String : nil
+        } while startCursor != nil
+
+        return allResults
+    }
+
     func createDatabase(parentPageId: String) async throws -> String {
         let body: [String: Any] = [
             "parent": [
@@ -279,12 +312,59 @@ nonisolated actor NotionAPIClient {
         return databaseId
     }
 
+    /// Ensures required properties exist on the database and returns the name of the title property.
+    func ensureDatabaseSchema(databaseId: String) async throws -> String {
+        let db = try await request(method: "GET", path: "/v1/databases/\(databaseId)")
+
+        guard let properties = db["properties"] as? [String: Any] else {
+            throw NotionAPIError.invalidResponse("Database has no properties")
+        }
+
+        // Find the existing title property name (e.g. "Name", "Title", etc.)
+        var titlePropertyName: String? = nil
+        for (key, value) in properties {
+            guard let prop = value as? [String: Any] else { continue }
+            if prop["type"] as? String == "title" {
+                titlePropertyName = key
+                break
+            }
+        }
+
+        let requiredProps: [String: String] = [
+            "URL": "url",
+            "Date": "date",
+            "Model": "select",
+            "Tags": "multi_select",
+        ]
+
+        var updates: [String: Any] = [:]
+        for (name, expectedType) in requiredProps {
+            if let existing = properties[name] as? [String: Any],
+               let existingType = existing["type"] as? String,
+               existingType == expectedType {
+                continue
+            }
+            if properties[name] == nil {
+                updates[name] = [expectedType: [:] as [String: Any]]
+            }
+        }
+
+        if !updates.isEmpty {
+            let body: [String: Any] = ["properties": updates]
+            _ = try await request(method: "PATCH", path: "/v1/databases/\(databaseId)", body: body)
+        }
+
+        // Every Notion database has exactly one title property
+        return titlePropertyName ?? "Title"
+    }
+
     func createPage(
         databaseId: String,
         title: String,
         url: String,
         model: String,
-        date: String
+        date: String,
+        titlePropertyName: String = "Title"
     ) async throws -> (pageId: String, pageUrl: String) {
         let body: [String: Any] = [
             "parent": [
@@ -292,7 +372,7 @@ nonisolated actor NotionAPIClient {
                 "database_id": databaseId,
             ],
             "properties": [
-                "Title": [
+                titlePropertyName: [
                     "title": [
                         ["type": "text", "text": ["content": title]]
                     ]

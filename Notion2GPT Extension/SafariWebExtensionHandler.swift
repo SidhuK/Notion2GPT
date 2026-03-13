@@ -32,12 +32,14 @@ class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
                 switch type {
                 case "generate-oauth-url":
                     response = try await handleGenerateOAuthURL()
-                case "poll-oauth-code":
-                    response = try await handlePollOAuthCode()
+                case "exchange-code":
+                    response = try await handleExchangeCode(message: message)
                 case "check-auth":
                     response = await handleCheckAuth()
                 case "search-databases":
                     response = try await handleSearchDatabases()
+                case "search-pages":
+                    response = try await handleSearchPages()
                 case "create-database":
                     response = try await handleCreateDatabase(message: message)
                 case "save-conversation":
@@ -68,37 +70,25 @@ class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         }
         let state = bytes.map { String(format: "%02x", $0) }.joined()
 
-        try await KeychainHelper.shared.saveString(key: KeychainKey.oauthPendingState, value: state)
-
         var components = URLComponents(string: "https://api.notion.com/v1/oauth/authorize")!
         components.queryItems = [
             URLQueryItem(name: "client_id", value: clientId),
+            URLQueryItem(name: "redirect_uri", value: redirectUri),
             URLQueryItem(name: "response_type", value: "code"),
             URLQueryItem(name: "owner", value: "user"),
             URLQueryItem(name: "state", value: state),
         ]
 
-        return ["url": components.url!.absoluteString]
+        return ["url": components.url!.absoluteString, "state": state]
     }
 
-    private func handlePollOAuthCode() async throws -> [String: Any] {
-        let keychain = KeychainHelper.shared
-
-        guard let code = await keychain.readString(key: KeychainKey.oauthPendingCode) else {
-            return ["status": "pending"]
-        }
-
-        let callbackState = await keychain.readString(key: KeychainKey.oauthCallbackState)
-        let pendingState = await keychain.readString(key: KeychainKey.oauthPendingState)
-
-        guard callbackState == pendingState else {
-            try await clearOAuthKeys()
-            return ["status": "error", "reason": "state_mismatch"]
+    private func handleExchangeCode(message: [String: Any]?) async throws -> [String: Any] {
+        guard let code = message?["code"] as? String else {
+            return ["status": "error", "reason": "Missing authorization code"]
         }
 
         do {
             let info = try await NotionAPIClient.shared.exchangeCodeForToken(code: code)
-            try await clearOAuthKeys()
             var result: [String: Any] = [
                 "status": "connected",
                 "workspaceName": info.workspaceName,
@@ -145,6 +135,30 @@ class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
         return ["databases": databases]
     }
 
+    private func handleSearchPages() async throws -> [String: Any] {
+        let rawPages = try await NotionAPIClient.shared.searchPages()
+
+        let pages: [[String: Any]] = rawPages.compactMap { page in
+            guard let id = page["id"] as? String else { return nil }
+
+            var title = ""
+            if let properties = page["properties"] as? [String: Any] {
+                // Find the property with type "title"
+                for (_, value) in properties {
+                    guard let prop = value as? [String: Any],
+                          prop["type"] as? String == "title",
+                          let titleArray = prop["title"] as? [[String: Any]] else { continue }
+                    title = titleArray.compactMap { $0["plain_text"] as? String }.joined()
+                    break
+                }
+            }
+
+            return ["id": id, "title": title]
+        }
+
+        return ["pages": pages]
+    }
+
     private func handleCreateDatabase(message: [String: Any]?) async throws -> [String: Any] {
         guard let parentPageId = message?["parentPageId"] as? String else {
             return ["error": "Missing parentPageId"]
@@ -163,6 +177,8 @@ class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
             return ["error": "Missing required fields (databaseId, title, url, model, blocks)"]
         }
 
+        let titlePropertyName = try await NotionAPIClient.shared.ensureDatabaseSchema(databaseId: databaseId)
+
         let dateFormatter = ISO8601DateFormatter()
         dateFormatter.formatOptions = [.withFullDate]
         let date = dateFormatter.string(from: Date())
@@ -172,7 +188,8 @@ class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
             title: title,
             url: url,
             model: model,
-            date: date
+            date: date,
+            titlePropertyName: titlePropertyName
         )
 
         if !blocks.isEmpty {
@@ -188,13 +205,6 @@ class SafariWebExtensionHandler: NSObject, NSExtensionRequestHandling {
     }
 
     // MARK: - Helpers
-
-    private func clearOAuthKeys() async throws {
-        let keychain = KeychainHelper.shared
-        try await keychain.delete(key: KeychainKey.oauthPendingCode)
-        try await keychain.delete(key: KeychainKey.oauthPendingState)
-        try await keychain.delete(key: KeychainKey.oauthCallbackState)
-    }
 
     private func respond(with message: [String: Any], context: NSExtensionContext) {
         let response = NSExtensionItem()

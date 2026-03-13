@@ -126,7 +126,7 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
             const scraped = await browser.tabs.sendMessage(tab.id, { action: "scrape-conversation" });
 
             if (scraped.error) {
-                return { error: scraped.error };
+                return { error: scraped.message || scraped.error };
             }
 
             const blocks = convertConversationToBlocks(scraped.messages);
@@ -134,12 +134,28 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
             return sendNative({
                 type: "save-conversation",
                 databaseId: request.databaseId,
-                title: scraped.title,
-                url: scraped.url,
-                model: scraped.model,
+                title: scraped.title || "Untitled Chat",
+                url: scraped.url || tab.url || "",
+                model: scraped.model || "ChatGPT",
                 blocks: blocks
             });
         })();
+    }
+
+    if (request.action === "cancel-oauth") {
+        return (async () => {
+            if (oauthTabId !== null) {
+                try { await browser.tabs.remove(oauthTabId); } catch {}
+                oauthTabId = null;
+            }
+            pendingOAuthState = null;
+            globalThis._oauthResult = null;
+            return { success: true };
+        })();
+    }
+
+    if (request.action === "search-pages") {
+        return sendNative({ type: "search-pages" });
     }
 
     if (request.action === "disconnect") {
@@ -157,23 +173,28 @@ browser.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 if (!tab?.id) {
                     return { error: "no_tab", message: "No active tab found." };
                 }
-                // Check if the tab is on a ChatGPT domain
+
+                // Check URL if available; Safari may not always provide tab.url
                 const tabUrl = tab.url || "";
-                const isChatGPT = /^https?:\/\/(chatgpt\.com|chat\.com|chat\.openai\.com)\//i.test(tabUrl);
-                if (!isChatGPT) {
+                if (tabUrl && !/^https?:\/\/(chatgpt\.com|chat\.com|chat\.openai\.com)\//i.test(tabUrl)) {
                     return { error: "not_chatgpt", message: "Navigate to a ChatGPT conversation to save it." };
                 }
-                // Try sending directly — content script should be auto-injected by manifest
+
+                // Try sending to content script (only injected on ChatGPT domains per manifest)
                 try {
                     const scraped = await browser.tabs.sendMessage(tab.id, { action: "scrape-conversation" });
                     return scraped;
                 } catch (sendErr) {
-                    // Content script not injected — try manual injection
+                    // Content script not loaded — try manual injection
                     try {
                         await ensureContentScript(tab.id);
                         const scraped = await browser.tabs.sendMessage(tab.id, { action: "scrape-conversation" });
                         return scraped;
                     } catch (injectErr) {
+                        // If URL was unknown and content script can't be reached, assume not on ChatGPT
+                        if (!tabUrl) {
+                            return { error: "not_chatgpt", message: "Navigate to a ChatGPT conversation to save it." };
+                        }
                         return { error: "inject_failed", message: "Could not reach content script: " + (injectErr.message || sendErr.message) };
                     }
                 }

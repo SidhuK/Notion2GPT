@@ -14,7 +14,7 @@ import Security
 
 // MARK: - Keychain Keys
 
-enum KeychainKey {
+nonisolated enum KeychainKey {
     static let accessToken = "notion_access_token"
     static let refreshToken = "notion_refresh_token"
     static let botId = "notion_bot_id"
@@ -34,7 +34,7 @@ enum KeychainKey {
 
 // MARK: - Keychain Errors
 
-enum KeychainError: Error, LocalizedError {
+nonisolated enum KeychainError: Error, LocalizedError {
     case itemNotFound
     case duplicateItem
     case unexpectedError(OSStatus)
@@ -53,7 +53,7 @@ enum KeychainError: Error, LocalizedError {
 
 // MARK: - KeychainHelper
 
-nonisolated actor KeychainHelper {
+actor KeychainHelper {
 
     static let shared = KeychainHelper()
 
@@ -147,5 +147,46 @@ nonisolated actor KeychainHelper {
         for key in KeychainKey.allKeys {
             try delete(key: key)
         }
+        SharedDefaults.clearOAuth()
+    }
+}
+
+// MARK: - Shared UserDefaults for OAuth Handoff
+
+/// Uses App Group shared UserDefaults for cross-process OAuth handoff
+/// between the host app (AppDelegate) and the Safari extension.
+/// This is more reliable than Keychain for cross-process communication.
+nonisolated enum SharedDefaults {
+    private static let suiteName = "group.com.karatsidhu.Notion2GPT"
+
+    private enum Key {
+        static let oauthPendingCode = "oauth_pending_code"
+        static let oauthCallbackState = "oauth_callback_state"
+        static let oauthPendingState = "oauth_pending_state"
+    }
+
+    private static var suite: UserDefaults? {
+        UserDefaults(suiteName: suiteName)
+    }
+
+    static var pendingCode: String? {
+        get { suite?.string(forKey: Key.oauthPendingCode) }
+        set { suite?.set(newValue, forKey: Key.oauthPendingCode) }
+    }
+
+    static var callbackState: String? {
+        get { suite?.string(forKey: Key.oauthCallbackState) }
+        set { suite?.set(newValue, forKey: Key.oauthCallbackState) }
+    }
+
+    static var pendingState: String? {
+        get { suite?.string(forKey: Key.oauthPendingState) }
+        set { suite?.set(newValue, forKey: Key.oauthPendingState) }
+    }
+
+    static func clearOAuth() {
+        suite?.removeObject(forKey: Key.oauthPendingCode)
+        suite?.removeObject(forKey: Key.oauthCallbackState)
+        suite?.removeObject(forKey: Key.oauthPendingState)
     }
 }

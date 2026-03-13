@@ -39,14 +39,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        Task {
-            do {
-                try await KeychainHelper.shared.saveString(key: KeychainKey.oauthPendingCode, value: code)
-                try await KeychainHelper.shared.saveString(key: KeychainKey.oauthCallbackState, value: state)
-                logger.info("OAuth callback code and state saved to Keychain")
-            } catch {
-                logger.error("Failed to save OAuth callback to Keychain: \(error.localizedDescription)")
-            }
-        }
+        SharedDefaults.pendingCode = code
+        SharedDefaults.callbackState = state
+        logger.info("OAuth callback code and state saved to shared UserDefaults")
     }
 }
